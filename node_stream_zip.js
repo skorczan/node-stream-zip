@@ -678,11 +678,21 @@ StreamZip.async = class StreamZipAsync extends events.EventEmitter {
         zip.on('extract', (entry, outPath) => this.emit('extract', entry, outPath));
 
         this[propZip] = new Promise((resolve, reject) => {
+            function errorListener(error) {
+                zip.close(closeError => {
+                    if (closeError) {
+                        StreamZip.debugLog("Close error during handling another error", closeError);
+                    }
+
+                    reject(error);
+                });
+            }
+
+            zip.on('error', errorListener);
             zip.on('ready', () => {
-                zip.removeListener('error', reject);
+                zip.removeListener('error', errorListener);
                 resolve(zip);
             });
-            zip.on('error', reject);
         });
     }
 
@@ -695,7 +705,7 @@ StreamZip.async = class StreamZipAsync extends events.EventEmitter {
     }
 
     async entry(name) {
-        const zip = await this[propZip];
+        const zip = await this[propZip].then(zip => zip.entry(name));
         return zip.entry(name);
     }
 
